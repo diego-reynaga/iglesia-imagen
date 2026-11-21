@@ -1,0 +1,17 @@
+import fs from "node:fs/promises";
+const ENDPOINT="http://127.0.0.1:9333", ORIGIN="https://www.vangoghmuseum.nl";
+const list=await (await fetch(`${ENDPOINT}/json/list`)).json();
+const target=list.find(t=>t.type==="page"&&t.url.startsWith(ORIGIN));
+const ws=new WebSocket(target.webSocketDebuggerUrl);let id=0;const pending=new Map();
+ws.addEventListener("message",ev=>{const m=JSON.parse(ev.data);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}});
+await new Promise((r,j)=>{ws.addEventListener("open",r,{once:true});ws.addEventListener("error",j,{once:true});});
+const send=(method,params={})=>new Promise((resolve,reject)=>{const i=++id;pending.set(i,{resolve,reject});ws.send(JSON.stringify({id:i,method,params}));});
+await send("Emulation.setDeviceMetricsOverride",{width:390,height:844,deviceScaleFactor:2,mobile:true});
+await new Promise(r=>setTimeout(r,1000));
+const o=await send("Runtime.evaluate",{expression:`(()=>{const cs=getComputedStyle;const tx=e=>(e?.textContent||'').replace(/\\s+/g,' ').trim();const rect=e=>{const r=e.getBoundingClientRect();return{x:Math.round(r.x),y:Math.round(r.y+scrollY),w:Math.round(r.width),h:Math.round(r.height)}};const st=(e,l)=>{const s=cs(e);const o={};for(const p of l)o[p]=s.getPropertyValue(p);return o};
+const top=[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=122&&r.width>8&&r.height>8}).map(e=>({tag:e.tagName,cls:(e.className||'').toString().slice(0,50),text:tx(e).slice(0,30),aria:e.getAttribute('aria-label'),rect:rect(e),style:st(e,['font-size','font-weight','background-color','padding','color'])}));
+const card=document.querySelectorAll('article')[1];const texts=card?[...card.querySelectorAll('*')].filter(e=>tx(e)&&e.children.length===0).slice(0,10).map(e=>({tag:e.tagName,text:tx(e).slice(0,50),rect:rect(e),style:st(e,['font-size','font-weight','line-height','letter-spacing','padding','background-color','border'])})):null;
+const btn=[...document.querySelectorAll('a')].find(a=>tx(a)==='Bestel tickets');const btnInner=btn?[...btn.querySelectorAll('*')].map(e=>({tag:e.tagName,rect:rect(e),style:st(e,['font-size','font-weight','padding','background-color','border','height'])})):null;
+return{top,texts,btnInner};})()`,returnByValue:true});
+await fs.writeFile("ref/mobile-components.json",JSON.stringify(o.result.value,null,2));
+console.log(JSON.stringify(o.result.value));ws.close();

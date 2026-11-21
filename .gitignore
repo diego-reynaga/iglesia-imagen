@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Local environment and logs
+.env
+.env.*
+*.log
+npm-debug.log*
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Raw photos and local build/reference artifacts
+img/*.NEF
+img/web/
+ref/
